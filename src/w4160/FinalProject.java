@@ -17,9 +17,11 @@ import org.lwjgl.opengl.DisplayMode;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.util.glu.GLU;
 import org.lwjgl.util.vector.Vector3f;
+import org.lwjgl.util.glu.Sphere;
+import org.lwjgl.util.glu.Cylinder;
 
 
-public class FinalProject {
+public class PA3 {
 
     String windowTitle = "3D Shapes";
     public boolean closeRequested = false;
@@ -30,7 +32,7 @@ public class FinalProject {
     float quadAngle; // Angle of rotation for the quads
 
     ShaderProgram shader;
-    
+
     public void run() {
 
         createWindow();
@@ -71,22 +73,79 @@ public class FinalProject {
         Camera.create();        
     }
     
+//public float intensityX = 1f;
+
     private void initShaders() {
+        // String vertex_shader =
+        //         //"uniform vec3 lightPos;" +
+        //         //"varying float intensityX, intensityY, intensityZ;" +
+        //         "void main () {" +
+        //         "  vec3 normal, lightDir;"+
+        //         "  vec4 diffuse;"+
+        //         "  float NdotL;"+
+                    
+        //         "  normal = normalize(gl_NormalMatrix * gl_Normal);"+
+                    
+        //         "   lightDir = normalize(vec3(gl_LightSource[0].position));"+
+                    
+        //         "   NdotL = max(dot(normal, lightDir), 0.08);"+
+                    
+        //         "   diffuse = gl_FrontMaterial.diffuse * gl_LightSource[0].diffuse;"+
+                    
+        //         "   gl_FrontColor =  NdotL * diffuse;"+
+                    
+        //         "   gl_Position = ftransform();"+
+        //         "}";
+        
+        // String fragment_shader =
+        //         "varying float intensityX, intensityY, intensityZ;" +
+        //         "void main () {" +
+        //         "  gl_FragColor = gl_Color;" +
+        //         "}";
         String vertex_shader =
-                "uniform vec3 lightDir;" +
-                "varying float intensityX, intensityY, intensityZ;" +
-                "void main () {" +
-                "  intensityX = gl_Vertex.x;" +
-                "  intensityY = gl_Vertex.y;" +
-                "  intensityZ = gl_Vertex.z;" +
-                "  gl_Position = ftransform();" +
-                "}";
+            "    varying vec4 diffuse,ambientGlobal,ambient;"+
+            "    varying vec3 normal,lightDir,halfVector;"+
+            "    varying float dist;"+
+            
+            "    void main() {"+   
+            "       vec4 position4;"+
+            "       vec3 pos3;"+        
+            "       normal = normalize(gl_NormalMatrix * gl_Normal);"+
+            
+            "       position4 = gl_ModelViewMatrix * gl_Vertex;"+
+            "       pos3 = vec3(gl_LightSource[0].position-position4);"+
+            "       lightDir = normalize(pos3);"+
+            "       dist = length(pos3);"+
+            "       halfVector = normalize(gl_LightSource[0].halfVector.xyz);"+
+            "       diffuse = gl_FrontMaterial.diffuse * gl_LightSource[0].diffuse;"+
+            "       ambient = gl_FrontMaterial.ambient * gl_LightSource[0].ambient;"+
+            "       ambientGlobal = gl_LightModel.ambient * gl_FrontMaterial.ambient;"+
+            "       gl_Position = ftransform();"+
+            "   }";
         
         String fragment_shader =
-                "varying float intensityX, intensityY, intensityZ;" +
-                "void main () {" +
-                "  gl_FragColor = vec4 (intensityX, intensityY, intensityZ, 1.0);" +
-                "}";
+            "   varying vec4 diffuse,ambientGlobal, ambient;"+
+            "   varying vec3 normal,lightDir,halfVector;"+
+            "   varying float dist;"+
+                
+            "   void main(){"+
+            "       vec3 norm,halfV,viewV,ldir;"+
+            "       float dot1,dot2;"+
+            "       vec4 color = ambientGlobal;"+
+            "       float light;"+
+            "       norm = normalize(normal);"+
+            "       dot1 = max(dot(norm,normalize(lightDir)),0.0);"+
+            
+            "       if (dot1 > 0.0) {"+
+            "           light = 1.0 / (gl_LightSource[0].constantAttenuation + gl_LightSource[0].linearAttenuation * dist + gl_LightSource[0].quadraticAttenuation * dist * dist);"+
+            "           color += light * (diffuse * dot1 + ambient);"+
+            "           halfV = normalize(halfVector);"+
+            "           dot2 = max(dot(norm,halfV),0.0);"+
+            "           color += light * gl_FrontMaterial.specular * gl_LightSource[0].specular * pow(dot2,gl_FrontMaterial.shininess);"+
+            "       }"+
+            
+            "       gl_FragColor = color;"+
+            "   }";
 
         try {
             shader = new ShaderProgram(vertex_shader, fragment_shader);
@@ -106,54 +165,90 @@ public class FinalProject {
         // start to use shaders
         shader.begin();
         float dir = (float)(1./Math.sqrt(3));
+        Vector3f light = new Vector3f(1.0f, 1.0f, 0.4f);
+
         shader.setUniform3f("lightDir", dir, dir, dir);
-        
+        // shader.setUniform3f("lightPos", 1.0f, 1.0f, 0.4f);
+        // shader.setUniform3f("lightColor", 0.6f, 0.6f, 1f);
+
         GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT); // Clear The Screen And The Depth Buffer
         GL11.glLoadIdentity(); // Reset The View
         GL11.glTranslatef(0.0f, 0.0f, -7.0f); // Move Right And Into The Screen
 
         Camera.apply();
-        GL11.glBegin(GL11.GL_QUADS); // Start Drawing The Cube
-        GL11.glColor3f(0.0f, 1.0f, 0.0f); // Set The Color To Green
-        GL11.glVertex3f(1.0f, 1.0f, -1.0f); // Top Right Of The Quad (Top)
-        GL11.glVertex3f(-1.0f, 1.0f, -1.0f); // Top Left Of The Quad (Top)
-        GL11.glVertex3f(-1.0f, 1.0f, 1.0f); // Bottom Left Of The Quad (Top)
-        GL11.glVertex3f(1.0f, 1.0f, 1.0f); // Bottom Right Of The Quad (Top)
+        // GL11.glBegin(GL11.GL_QUADS); // Start Drawing The Cube
+        // GL11.glColor3f(0.0f, 0.0f, 0.0f); // Set The Color To Green
+        // GL11.glVertex3f(1.0f, 1.0f, -1.0f); // Top Right Of The Quad (Top)
+        // GL11.glVertex3f(-1.0f, 1.0f, -1.0f); // Top Left Of The Quad (Top)
+        // GL11.glVertex3f(-1.0f, 1.0f, 1.0f); // Bottom Left Of The Quad (Top)
+        // GL11.glVertex3f(1.0f, 1.0f, 1.0f); // Bottom Right Of The Quad (Top)
 
-        GL11.glColor3f(1.0f, 0.5f, 0.0f); // Set The Color To Orange
-        GL11.glVertex3f(1.0f, -1.0f, 1.0f); // Top Right Of The Quad (Bottom)
-        GL11.glVertex3f(-1.0f, -1.0f, 1.0f); // Top Left Of The Quad (Bottom)
-        GL11.glVertex3f(-1.0f, -1.0f, -1.0f); // Bottom Left Of The Quad (Bottom)
-        GL11.glVertex3f(1.0f, -1.0f, -1.0f); // Bottom Right Of The Quad (Bottom)
+        // //GL11.glColor3f(1.0f, 0.5f, 0.0f); // Set The Color To Orange
+        // GL11.glVertex3f(1.0f, -1.0f, 1.0f); // Top Right Of The Quad (Bottom)
+        // GL11.glVertex3f(-1.0f, -1.0f, 1.0f); // Top Left Of The Quad (Bottom)
+        // GL11.glVertex3f(-1.0f, -1.0f, -1.0f); // Bottom Left Of The Quad (Bottom)
+        // GL11.glVertex3f(1.0f, -1.0f, -1.0f); // Bottom Right Of The Quad (Bottom)
 
-        GL11.glColor3f(1.0f, 0.0f, 0.0f); // Set The Color To Red
-        GL11.glVertex3f(1.0f, 1.0f, 1.0f); // Top Right Of The Quad (Front)
-        GL11.glVertex3f(-1.0f, 1.0f, 1.0f); // Top Left Of The Quad (Front)
-        GL11.glVertex3f(-1.0f, -1.0f, 1.0f); // Bottom Left Of The Quad (Front)
-        GL11.glVertex3f(1.0f, -1.0f, 1.0f); // Bottom Right Of The Quad (Front)
+        // //GL11.glColor3f(1.0f, 0.0f, 0.0f); // Set The Color To Red
+        // GL11.glVertex3f(1.0f, 1.0f, 1.0f); // Top Right Of The Quad (Front)
+        // GL11.glVertex3f(-1.0f, 1.0f, 1.0f); // Top Left Of The Quad (Front)
+        // GL11.glVertex3f(-1.0f, -1.0f, 1.0f); // Bottom Left Of The Quad (Front)
+        // GL11.glVertex3f(1.0f, -1.0f, 1.0f); // Bottom Right Of The Quad (Front)
 
-        GL11.glColor3f(1.0f, 1.0f, 0.0f); // Set The Color To Yellow
-        GL11.glVertex3f(1.0f, -1.0f, -1.0f); // Bottom Left Of The Quad (Back)
-        GL11.glVertex3f(-1.0f, -1.0f, -1.0f); // Bottom Right Of The Quad (Back)
-        GL11.glVertex3f(-1.0f, 1.0f, -1.0f); // Top Right Of The Quad (Back)
-        GL11.glVertex3f(1.0f, 1.0f, -1.0f); // Top Left Of The Quad (Back)
+        // //GL11.glColor3f(1.0f, 1.0f, 0.0f); // Set The Color To Yellow
+        // GL11.glVertex3f(1.0f, -1.0f, -1.0f); // Bottom Left Of The Quad (Back)
+        // GL11.glVertex3f(-1.0f, -1.0f, -1.0f); // Bottom Right Of The Quad (Back)
+        // GL11.glVertex3f(-1.0f, 1.0f, -1.0f); // Top Right Of The Quad (Back)
+        // GL11.glVertex3f(1.0f, 1.0f, -1.0f); // Top Left Of The Quad (Back)
 
-        GL11.glColor3f(0.0f, 0.0f, 1.0f); // Set The Color To Blue
-        GL11.glVertex3f(-1.0f, 1.0f, 1.0f); // Top Right Of The Quad (Left)
-        GL11.glVertex3f(-1.0f, 1.0f, -1.0f); // Top Left Of The Quad (Left)
-        GL11.glVertex3f(-1.0f, -1.0f, -1.0f); // Bottom Left Of The Quad (Left)
-        GL11.glVertex3f(-1.0f, -1.0f, 1.0f); // Bottom Right Of The Quad (Left)
+        // //GL11.glColor3f(0.0f, 0.0f, 1.0f); // Set The Color To Blue
+        // GL11.glVertex3f(-1.0f, 1.0f, 1.0f); // Top Right Of The Quad (Left)
+        // GL11.glVertex3f(-1.0f, 1.0f, -1.0f); // Top Left Of The Quad (Left)
+        // GL11.glVertex3f(-1.0f, -1.0f, -1.0f); // Bottom Left Of The Quad (Left)
+        // GL11.glVertex3f(-1.0f, -1.0f, 1.0f); // Bottom Right Of The Quad (Left)
 
-        GL11.glColor3f(1.0f, 0.0f, 1.0f); // Set The Color To Violet
-        GL11.glVertex3f(1.0f, 1.0f, -1.0f); // Top Right Of The Quad (Right)
-        GL11.glVertex3f(1.0f, 1.0f, 1.0f); // Top Left Of The Quad (Right)
-        GL11.glVertex3f(1.0f, -1.0f, 1.0f); // Bottom Left Of The Quad (Right)
-        GL11.glVertex3f(1.0f, -1.0f, -1.0f); // Bottom Right Of The Quad (Right)
-        GL11.glEnd(); // Done Drawing The Quad
-
+        // GL11.glVertex3f(1.0f, 1.0f, -1.0f); // Top Right Of The Quad (Right)
+        // GL11.glVertex3f(1.0f, 1.0f, 1.0f); // Top Left Of The Quad (Right)
+        // GL11.glVertex3f(1.0f, -1.0f, 1.0f); // Bottom Left Of The Quad (Right)
+        // GL11.glVertex3f(1.0f, -1.0f, -1.0f); // Bottom Right Of The Quad (Right)
+        // GL11.glEnd(); // Done Drawing The Quad
+    
+        renderSphere(0f, 0f, 0f);
+renderCylinder(0f, 0f, 0f);
+renderSphere(0f, 0f, 1f);
         shader.end();
     }
 
+
+// private void render() {
+//      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//      glLoadIdentity();
+//      glTranslatef(0.0f, 0.0f, zTranslation);
+//      renderSphere(-2f, -0.5f, -1f);
+//      renderSphere(-1f, -0.5f, -2f);
+//      renderSphere(-0f, -0.5f, -3f);
+//      renderSphere(1f, -0.5f, -4f);
+//      renderSphere(2f, -0.5f, -5f);
+// }
+
+private void renderCylinder(float x, float y, float z) {
+     GL11.glPushMatrix();
+     GL11.glTranslatef(x, y, z);
+     
+     Cylinder s = new Cylinder();
+     s.draw(1f,1f,1f, 200, 200);
+     //Sphere s = new Sphere();
+     //s.draw(1f, 20, 20);
+     GL11.glPopMatrix();
+}
+private void renderSphere(float x, float y, float z) {
+     GL11.glPushMatrix();
+     GL11.glTranslatef(x, y, z);
+     
+     Sphere s = new Sphere();
+     s.draw(1f, 50, 50);
+     GL11.glPopMatrix();
+}
     /**
      * Poll Input
      */
@@ -238,7 +333,7 @@ public class FinalProject {
     }
     
     public static void main(String[] args) {
-        new FinalProject().run();
+        new PA3().run();
     }
     
     public static class Camera {
