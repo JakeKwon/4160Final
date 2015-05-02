@@ -21,7 +21,7 @@ import org.lwjgl.util.glu.Sphere;
 import org.lwjgl.util.glu.Cylinder;
 
 
-public class FinalProject {
+public class PA3 {
 
     String windowTitle = "3D Shapes";
     public boolean closeRequested = false;
